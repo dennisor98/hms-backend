@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.openmarket.hms.annotations.CustomController;
+import com.openmarket.hms.annotations.RefreshTokenMiddleware;
 import com.openmarket.hms.requestDto.UserLoginDto;
 import com.openmarket.hms.services.AuthService;
 
@@ -28,5 +29,12 @@ public class AuthController {
 		   @Valid @RequestBody UserLoginDto loginDto
 		   ) {
 	   return this.authService.userLogin(loginDto);
+   }
+   
+   @RefreshTokenMiddleware()
+   @PostMapping("/token/refresh")
+   public Object refreshAuthToken() {
+	   
+	   return this.authService.refreshUserToken();
    }
 }

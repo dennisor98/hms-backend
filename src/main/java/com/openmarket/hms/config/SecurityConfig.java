@@ -111,8 +111,8 @@ public class SecurityConfig {
 				"/webjars/**").permitAll()
 				.requestMatchers("/css/**", "/js/**", "/images/**").permitAll()	
 				
-//				.requestMatchers("/auth/user/login")
-//				.permitAll()
+				.requestMatchers("/auth/user/login","auth/token/refresh")
+				.permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**")
 				.permitAll() // Permit OPTIONS requests
 				.anyRequest().authenticated()
@@ -164,7 +164,7 @@ public class SecurityConfig {
 		return openApi -> {
 			openApi.getPaths().forEach((path, pathItem) -> {
 				pathItem.readOperations().forEach(operation -> {
-					if ("/portal/user/refresh/token".equals(path)) {
+					if ("/auth/token/refresh".equals(path)) {
 						operation.addParametersItem(
 								new HeaderParameter().name("refresh-token-header")
 										.allowEmptyValue(false).example("ej....").required(false));

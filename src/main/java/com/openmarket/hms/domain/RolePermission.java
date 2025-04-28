@@ -18,7 +18,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class RolePermission extends BaseHmsDomain implements Serializable{
 	private static final long serialVersionUID = -7485848387695804412L;
-
 	@ManyToOne()
 	@JoinColumn(name="role_id")
 	Role role;

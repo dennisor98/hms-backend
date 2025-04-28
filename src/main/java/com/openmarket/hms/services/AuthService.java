@@ -7,6 +7,7 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -50,6 +51,14 @@ public class AuthService {
 	  
 	  User user = userOpt.get();
 	  
+	  if(!user.getIsActive()) {
+		  Map<String,Object> response = new HashMap<>();
+		  response.put("success",false);
+		  response.put("message","Access denied");
+		  
+		  return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+	  }
+	  
 	  Optional<UserPassword> userPinOpt = this.userPasswordRepository.findByUser(user);
 	  if(userPinOpt.isEmpty()) {
 		  Map<String,Object> res = new HashMap<>();
@@ -86,4 +95,14 @@ public class AuthService {
 	  response.put("payload",payLoad);
 	  return ResponseEntity.status(HttpStatus.OK).body(response);
   }
+  
+   public Object refreshUserToken() {
+	   User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+	   Map<String,Object> res = new HashMap<>();
+	   res.put("success",true);
+	   res.put("access_token",this.jwtService.generateToken(user));
+	   res.put("refresh_token",this.jwtService.generateRefreshToken(user));
+	   
+	   return ResponseEntity.status(HttpStatus.OK).body(res);
+   }
 }

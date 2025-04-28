@@ -1,8 +1,10 @@
 package com.openmarket.hms.services;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -49,6 +51,40 @@ public class DepartmentService {
 	   }
    }
    
+   
+   public Object getDepartments() {
+	   try {
+		   List<Department> deptList = this.deptRepository.findAll();
+		   var depts =  deptList.stream()
+				   .map(d->{
+					   Map<String,Object> map = new HashMap<>(); 
+
+					   map.put("id",d.getId());
+					   map.put("name",d.getName());
+					   map.put("parentId",d.getParentDepartmentId());
+					   map.put("description", d.getDescription());
+					   map.put("createdAt", d.getCreatedAt());
+					   map.put("updatedAt",d.getUpdatedAt());
+					   map.put("creator",d.getUser().getFirstName() + " "+d.getUser().getLastName());
+					   return map;
+				   }).collect(Collectors.toList());
+		   
+		   Map<String,Object> res = new HashMap<>();
+		   res.put("success",true);
+		   res.put("message","Request complete");
+		   res.put("departments",depts);
+		   
+		   return ResponseEntity.status(HttpStatus.OK).body(res);
+	   }catch(Exception ex) {
+		   Map<String,Object> res = new HashMap<>();
+		   res.put("success",false);
+		   res.put("message","Oops! Server error");
+		   
+		   return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(res);
+	   }
+	   
+	   
+   }
    
    public Object editDepartment(String id,CreateDeptDto deptDto) {
 	   Optional<Department> deptOpt = this.deptRepository.findById(id);
