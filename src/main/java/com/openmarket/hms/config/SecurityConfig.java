@@ -108,6 +108,7 @@ public class SecurityConfig {
 				"/swagger-resources/**",
 				"swagger-config",
 				"/auth/user/login2",
+				"/ws/**",
 				"/webjars/**").permitAll()
 				.requestMatchers("/css/**", "/js/**", "/images/**").permitAll()	
 				

@@ -7,8 +7,11 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 import java.util.List;
+
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,21 +19,32 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.openmarket.hms.beans.AdvancedUniqueKeyGenerator;
+import com.openmarket.hms.domain.Consultation;
 import com.openmarket.hms.domain.Patient;
 import com.openmarket.hms.domain.PatientSession;
 import com.openmarket.hms.domain.Payment;
+import com.openmarket.hms.domain.Triage;
 import com.openmarket.hms.domain.User;
 import com.openmarket.hms.enums.GenderType;
 import com.openmarket.hms.enums.MaritalStatusType;
+import com.openmarket.hms.repository.ConsultationRepository;
 import com.openmarket.hms.repository.PatientRepository;
 import com.openmarket.hms.repository.PatientSessionRepository;
 import com.openmarket.hms.repository.PaymentRepository;
+import com.openmarket.hms.repository.TriageRepository;
+import com.openmarket.hms.repository.UserRepository;
+import com.openmarket.hms.requestDto.ConsultationDto;
 import com.openmarket.hms.requestDto.PatientDto;
 import com.openmarket.hms.requestDto.PatientSessionDto;
+import com.openmarket.hms.requestDto.TriageDto;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class PatientService {
 	@Autowired
 	private PatientRepository patientRepository;
@@ -38,7 +52,20 @@ public class PatientService {
 	private PatientSessionRepository patSessRepository;
 	@Autowired
 	private PaymentRepository payRepository;
-	
+	@Autowired
+	private PriorityQueue<Triage> triageQueue;
+	@Autowired
+	private PriorityQueue<Consultation> consultationQueue;
+    @Autowired
+    private TriageRepository triageRepository;
+    @Autowired
+    private ConsultationRepository consultationRepository;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private MessagingService messageService;
+    @Autowired
+    private RabbitMqMessageService rabbitMsgService;
    public Object createPatient(PatientDto patientDto) {
 	   GenderType gender = null;
 	   
@@ -183,6 +210,8 @@ public class PatientService {
 	  
    }
    
+   
+   @Transactional
    public Object editPatient(String patientId,PatientDto patientDto) {
 	   Optional<Patient> patientOpt =  this.patientRepository.findById(patientId);
 	   if(patientOpt.isEmpty()) {
@@ -245,9 +274,9 @@ public class PatientService {
 	   
    }
    
-   
+   @Transactional
    public Object addPatientToSession(String patientId) {
-	   
+	   User user =  (User)SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 	   Optional<Patient> patOpt = this.patientRepository.findById(patientId);
 	   if(patOpt.isEmpty()) {
 		   Map<String,Object> res = new HashMap<>();
@@ -269,13 +298,29 @@ public class PatientService {
 	   
 	   PatientSession patSessionBuild =  PatientSession.builder()
 			   .isActive(true).patient(patient).sessionId(AdvancedUniqueKeyGenerator.generateUniqueKey().toUpperCase())
+			   .initiatedBy(user)
 			   .build();
 	   try {
-		   this.patSessRepository.save(patSessionBuild);
+		   var session = this.patSessRepository.save(patSessionBuild);
 		   Map<String,Object> res = new HashMap<>();
 		   res.put("success",true);
 		   res.put("message","Patient added to session");
 
+		   //create a triage record
+		   try {
+			   Triage triageBuild = Triage.builder().session(session).patient(patient).priority(patient.getCreatedAt().toInstant().toEpochMilli()).isComplete(false).build();
+		 var triage =  this.triageRepository.save(triageBuild);
+		   
+		   //add patient to triage queue
+		   this.triageQueue.add(triage);
+		   System.out.println("Triage queue size: " + triageQueue.size());
+			   this.messageService.emitTriageQueue(this.triageQueue.peek());
+
+		   }catch(Exception ex) {
+			   ex.printStackTrace();
+		   }
+		   
+		   
 		   return ResponseEntity.status(HttpStatus.OK).body(res);
 		   
 	   }catch(Exception ex) {
@@ -288,6 +333,8 @@ public class PatientService {
 	   
 	  
    }
+   
+
    
    public Object activatePatientSession(PatientSessionDto sesdto) {
 	   Optional<PatientSession> patSesOpt =  this.patSessRepository.findById(sesdto.getSessionId());
@@ -381,6 +428,156 @@ public class PatientService {
 	   }
 	   	   
    }
+   
+   
+   //add rabbitMq config
+   
+   public Object endTriageSession(TriageDto data) {
+	   Optional<Triage> triageOpt = this.triageRepository.findById(data.getTriageId());
+	   if(triageOpt.isEmpty()) {
+		   Map<String,Object> res = new HashMap<>();
+		   res.put("success",false);
+		   res.put("message","Invalid triage information");
+
+		   return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
+	   }
+
+	   var triage = triageOpt.get();
+	   triage.setBmi(data.getWeight()/(data.getHeight()*data.getHeight()));
+	   triage.setHeight(data.getHeight());
+	   triage.setWeight(data.getWeight());
+	   triage.setTemp(data.getTemp());
+	   triage.setBp(data.getBp());
+	   triage.setIsComplete(true);
+	   try {
+		   this.triageRepository.save(triage);
+		   Map<String,Object> res = new HashMap<>();
+		   res.put("success",true);
+		   res.put("message","Record submitted");
+          
+		  var current =  this.triageQueue.poll();
+		  System.out.println("polled "+current);
+		  
+		  //queue the next patient at the top of the queue
+		  this.rabbitMsgService.callNextPatient(triageQueue.peek());
+		  
+		   return ResponseEntity.status(HttpStatus.OK).body(res);
+	   }catch(Exception ex) {
+		   Map<String,Object> res = new HashMap<>();
+		   res.put("success",false);
+		   res.put("message","Oops! Server error.");
+
+		   return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(res);
+	   }
+
+   }
+   
+   public Object addPatientToConsultation(ConsultationDto req) {
+	   Optional<PatientSession> psessionOpt = this.patSessRepository.findById(req.getSessionId());
+	   if(psessionOpt.isEmpty()) {
+		 Map<String,Object> res =  Map.of("success",false,"message","Invalid session");
+		
+		 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
+		 
+		   
+	   }
+	   User user = null;
+	   if(req.getDoctorId() !=null) {
+		   Optional<User> userOpt = this.userRepository.findById(req.getDoctorId());
+		   
+		   if(userOpt.isEmpty()) {
+			  return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("success",false,"message","Invalid doctor information"));
+		   }
+		   
+		   user = userOpt.get();
+	   }
+	   PatientSession session =  psessionOpt.get();
+	   Consultation consultationBuild = Consultation.builder()
+			   .session(session).priority(System.currentTimeMillis()).consultant(user).build();
+	   
+	   try {
+		   Consultation consultation = this.consultationRepository.save(consultationBuild);
+		   try {
+			   this.consultationQueue.add(consultation);
+		   }catch(Exception ex) {
+			   ex.printStackTrace();
+			   return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success",false,"message","Oops! Server error!"));
+		   }
+		   return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("success",true,"message","Patient queued for consultation"));
+		   
+		   
+	   }catch(Exception ex) {
+		   return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success",false,"message","Oops! Server error!"));
+	   }
+   }
+   
+   public Object updateConsultationFindings(String consultationId,String findings) {
+	   Optional<Consultation> consltOpt =  this.consultationRepository.findById(consultationId);
+	   if(consltOpt.isEmpty()) {
+		   return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("success",false,"message","Invalid consultationId"));
+	   }
+	   
+	   Consultation consultation = consltOpt.get();
+	   consultation.setFindings(findings);
+	   try {
+		   this.consultationRepository.save(consultation);
+		   return ResponseEntity.status(HttpStatus.OK).body(
+				   Map.of("success",true,"message","Consultation finding updated for "+consultation.getSession().getSessionId()));
+	   }catch(Exception ex) {
+		   return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success",false,"message","Oops! Server error!"));
+	   }
+   }
+   
+   public Object updateConsultationReport(String consultationId,String findings) {
+	   Optional<Consultation> consltOpt =  this.consultationRepository.findById(consultationId);
+	   if(consltOpt.isEmpty()) {
+		   return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("success",false,"message","Invalid consultationId"));
+	   }
+
+	   Consultation consultation = consltOpt.get();
+	   consultation.setFindings(findings);
+	   try {
+		   this.consultationRepository.save(consultation);
+		   return ResponseEntity.status(HttpStatus.OK)
+				   .body(Map.of("success",true,"message","Consultation report updated for "+consultation.getSession().getSessionId()));
+	   }catch(Exception ex) {
+		   return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success",false, "message","Oops! Server error!"));
+	   }
+   }
+   
+   
+   public Object getPatientVisitsById(String patientId) {
+	  try {
+		  Optional<Patient> patOpt = this.patientRepository.findById(patientId);
+		   if(patOpt.isEmpty()) {
+			   return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("success",false,"message","Invalid patientId"));
+		   }
+		   
+		   Patient patient = patOpt.get();
+		   List<PatientSession> patSessList = this.patSessRepository.findByPatient(patient);
+		   var sessions =  patSessList.stream()
+	                      .map((s)->{
+	                    	var sesMap = Map.of("id",s.getId(),"session_id",s.getSessionId(),"visitDate",s.getCreatedAt()); 
+	                    	
+	                    	return sesMap;
+	                      });
+		   
+		   return ResponseEntity.status(HttpStatus.OK).body(
+				   Map.of("success",true,"message","Request success","sessions",sessions));
+	  }catch(Exception ex) {
+		  ex.printStackTrace();
+		  return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success",false, "message","Oops! Server error!"));
+	  }
+   }
+   
+   @RabbitListener(queues="triageQueue")
+   public void handleTriageSessionQueue(Triage triage) {
+	   //emit triage websocket for the next patient in line
+	   this.messageService.emitTriageQueue(triage);
+
+   }
+   
+   
    
    
     

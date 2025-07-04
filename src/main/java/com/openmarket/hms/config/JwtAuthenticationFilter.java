@@ -96,6 +96,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter implements Han
 	@Override
 	public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler,
 			Map<String, Object> attributes) throws Exception {
+		if (request.getHeaders().getUpgrade().equalsIgnoreCase("websocket")) {
+	        return true;
+	    }
 		String authHeader = request.getHeaders().getFirst("Authorization");
 		String token = null;
 		String id = null;
@@ -111,7 +114,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter implements Han
 
 			}
 		}
-		System.out.println(id);
+		System.out.println("id"+id);
 
 		if (id != null) {
 			try {
@@ -128,6 +131,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter implements Han
 			}
 
 		}
+		
+		
+
 
 		// TODO Auto-generated method stub
 		return false;

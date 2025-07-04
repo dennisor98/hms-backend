@@ -11,8 +11,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import com.openmarket.hms.annotations.CustomController;
+import com.openmarket.hms.requestDto.ConsultationDto;
 import com.openmarket.hms.requestDto.PatientDto;
 import com.openmarket.hms.requestDto.PatientSessionDto;
+import com.openmarket.hms.requestDto.TriageDto;
 import com.openmarket.hms.services.PatientService;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,7 +27,7 @@ public class PatientController {
 	@Autowired
 	private PatientService patientService;
 	@PostMapping()
-	public Object addPatient(PatientDto ptdto) {
+	public Object addPatient(@Valid @RequestBody PatientDto ptdto) {
 		return this.patientService.createPatient(ptdto);
 	}
 	
@@ -36,6 +38,15 @@ public class PatientController {
 			) {
 		return this.patientService.editPatient(patientId, ptdto);
 	}
+	
+	
+	@PutMapping("/triage")
+	public Object editTriage(@Valid @RequestBody TriageDto ptdto) {
+		return this.patientService.endTriageSession(ptdto);
+	}
+	
+	
+//	TriageDto
 	
 	@GetMapping()
 	public Object getPatients(
@@ -78,5 +89,10 @@ public class PatientController {
 		return this.patientService.endPatientSession(sessionId);
 		
 	}
+	
+@PostMapping()
+public Object quePatientForConsultation(@Valid @RequestBody ConsultationDto req) {
+	return this.patientService.addPatientToConsultation(req);
+}
 
 }

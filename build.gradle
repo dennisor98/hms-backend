@@ -33,11 +33,15 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-jdbc'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	implementation 'io.projectreactor.netty:reactor-netty' // Compatible with Spring 6.1.x
+    //implementation 'org.springframework:spring-websocket:6.0.13'
+    //implementation 'org.springframework:spring-messaging:6.0.13'	
 	//implementation 'org.springframework.ai:spring-ai-redis-store-spring-boot-starter'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-web' // Includes Jackson
     implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
     //implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310' // Java 8+ Date/Time support
     implementation 'com.fasterxml.jackson.module:jackson-module-parameter-names'
     implementation 'com.fasterxml.jackson.module:jackson-module-jakarta-xmlbind-annotations'

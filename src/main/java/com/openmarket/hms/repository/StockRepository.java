@@ -5,8 +5,8 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.openmarket.hms.domain.InventoryItem;
+import com.openmarket.hms.domain.Stock;
 
-public interface InventoryItemRepository extends JpaRepository<InventoryItem,String>{
- Optional<InventoryItem> findBySkuNumber(String skuNumber);
- 
+public interface StockRepository extends JpaRepository<Stock,String> {
+  Optional<Stock> findByItem(InventoryItem item);
 }
