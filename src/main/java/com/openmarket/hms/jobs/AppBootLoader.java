@@ -83,6 +83,31 @@ public class AppBootLoader implements ApplicationListener<ApplicationReadyEvent>
 			});
 		}
 
+//		PriorityQueue<Psession> queue = new PriorityQueue<>();
+//		queue.add(new Psession("Dennis",1));
+//		queue.add(new Psession("Bob", 2));
+//        queue.add(new Psession("Charlie", 3));
+//        
+//        Psession current = queue.poll(); // Dennis
+//        System.out.println("Calling: " + current);
+//        
+//     // Suppose Bob is missing
+//        Psession missing = queue.poll();
+//        System.out.println("Patient missing: " + missing);
+//
+//        // Push missing patient back (increase priority number to push back)
+//        missing.priority += 5; // or any logic you want
+//        queue.add(missing);
+//        
+//        while (!queue.isEmpty()) {
+//            Psession next = queue.poll();
+//            System.out.println("Calling: " + next);
+//        }
 
 	}
+	
+	
+	
+	
 }
+ 

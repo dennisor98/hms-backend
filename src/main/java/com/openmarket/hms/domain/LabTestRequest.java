@@ -36,4 +36,6 @@ public class LabTestRequest extends BaseHmsDomain implements Serializable{
 	@Column()
 	String result;
 	
+	long priority;
+	
 }

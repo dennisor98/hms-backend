@@ -30,9 +30,4 @@ public class Stock extends  BaseHmsDomain implements Serializable{
 	@Column()
 	Integer reservedQuantity;
 	
-	
-	
-	
-	
-
 }

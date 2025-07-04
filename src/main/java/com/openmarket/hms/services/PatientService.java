@@ -7,8 +7,11 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 import java.util.List;
+
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,21 +19,32 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.openmarket.hms.beans.AdvancedUniqueKeyGenerator;
+import com.openmarket.hms.domain.Consultation;
 import com.openmarket.hms.domain.Patient;
 import com.openmarket.hms.domain.PatientSession;
 import com.openmarket.hms.domain.Payment;
+import com.openmarket.hms.domain.Triage;
 import com.openmarket.hms.domain.User;
 import com.openmarket.hms.enums.GenderType;
 import com.openmarket.hms.enums.MaritalStatusType;
+import com.openmarket.hms.repository.ConsultationRepository;
 import com.openmarket.hms.repository.PatientRepository;
 import com.openmarket.hms.repository.PatientSessionRepository;
 import com.openmarket.hms.repository.PaymentRepository;
+import com.openmarket.hms.repository.TriageRepository;
+import com.openmarket.hms.repository.UserRepository;
+import com.openmarket.hms.requestDto.ConsultationDto;
 import com.openmarket.hms.requestDto.PatientDto;
 import com.openmarket.hms.requestDto.PatientSessionDto;
+import com.openmarket.hms.requestDto.TriageDto;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class PatientService {
 	@Autowired
 	private PatientRepository patientRepository;
@@ -38,7 +52,20 @@ public class PatientService {
 	private PatientSessionRepository patSessRepository;
 	@Autowired
 	private PaymentRepository payRepository;
-	
+	@Autowired
+	private PriorityQueue<Triage> triageQueue;
+	@Autowired
+	private PriorityQueue<Consultation> consultationQueue;
+    @Autowired
+    private TriageRepository triageRepository;
+    @Autowired
+    private ConsultationRepository consultationRepository;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private MessagingService messageService;
+    @Autowired
+    private RabbitMqMessageService rabbitMsgService;
    public Object createPatient(PatientDto patientDto) {
 	   GenderType gender = null;
 	   
@@ -183,6 +210,8 @@ public class PatientService {
 	  
    }
    
+   
+   @Transactional
    public Object editPatient(String patientId,PatientDto patientDto) {
 	   Optional<Patient> patientOpt =  this.patientRepository.findById(patientId);
 	   if(patientOpt.isEmpty()) {
@@ -245,7 +274,7 @@ public class PatientService {
 	   
    }
    
-   
+   @Transactional
    public Object addPatientToSession(String patientId) {
 	   User user = (User)SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 	   Optional<Patient> patOpt = this.patientRepository.findById(patientId);
@@ -271,11 +300,26 @@ public class PatientService {
 			   .isActive(true).patient(patient).sessionId(AdvancedUniqueKeyGenerator.generateUniqueKey().toUpperCase()).initiatedBy(user)
 			   .build();
 	   try {
-		   this.patSessRepository.save(patSessionBuild);
+		   var session = this.patSessRepository.save(patSessionBuild);
 		   Map<String,Object> res = new HashMap<>();
 		   res.put("success",true);
 		   res.put("message","Patient added to session");
 
+		   //create a triage record
+		   try {
+			   Triage triageBuild = Triage.builder().session(session).patient(patient).priority(patient.getCreatedAt().toInstant().toEpochMilli()).isComplete(false).build();
+		 var triage =  this.triageRepository.save(triageBuild);
+		   
+		   //add patient to triage queue
+		   this.triageQueue.add(triage);
+		   System.out.println("Triage queue size: " + triageQueue.size());
+			   this.messageService.emitTriageQueue(this.triageQueue.peek());
+
+		   }catch(Exception ex) {
+			   ex.printStackTrace();
+		   }
+		   
+		   
 		   return ResponseEntity.status(HttpStatus.OK).body(res);
 		   
 	   }catch(Exception ex) {
@@ -288,6 +332,8 @@ public class PatientService {
 	   
 	  
    }
+   
+
    
    public Object activatePatientSession(PatientSessionDto sesdto) {
 	   Optional<PatientSession> patSesOpt =  this.patSessRepository.findById(sesdto.getSessionId());

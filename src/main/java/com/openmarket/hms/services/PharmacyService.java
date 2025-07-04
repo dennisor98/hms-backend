@@ -161,4 +161,24 @@ public class PharmacyService {
 		  return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(res);
 	  }
   }
+  
+  public Object editPrescription(String prescriptionId,List<String> items) {
+	  Optional<PharmacyPrescription> prescOpt = this.pharmacyprescRepository.findById(prescriptionId);
+	  if(prescOpt.isEmpty()) {
+		  return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				  .body(Map.of("success",false,"message","Invalid prescription"));
+	  }
+	  PharmacyPrescription presc =  prescOpt.get();
+	  if(presc.getProcessed()) {
+		  return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				  .body(Map.of("success",false,"message","Prescription already processed"));  
+	  }
+	  
+	  
+	  
+	  
+	  
+	  
+	  return null;
+  }
 }

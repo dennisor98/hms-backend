@@ -1,5 +1,11 @@
 package com.openmarket.hms.domain;
 
+import java.io.Serializable;
+import java.util.Date;
+
+import com.openmarket.hms.enums.GenderType;
+import com.openmarket.hms.enums.MaritalStatusType;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.JoinColumn;
@@ -9,38 +15,28 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Data
+
 @Entity
+@Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class PatientSession extends BaseHmsDomain{
-	@Column()
-	String sessionId;
+public class PatientAdmissionRequest extends BaseHmsDomain implements Serializable{
 
-	@Column()
-	Boolean isActive;
-
+	private static final long serialVersionUID = -5282245473970298540L;
+	
 	@ManyToOne()
-	@JoinColumn(name="patient_id",nullable=false)
+	@JoinColumn()
 	Patient patient;
-
-	@ManyToOne()
-	@JoinColumn(name="initiator_id",nullable=false)
-	User initiatedBy;
-
-	@ManyToOne()
-	@JoinColumn(name="ender_id",nullable=true)
-	User endedBy;
-
-
+	
 	@Column()
-	Double consultationFee;
-
+	Boolean accepted;
+	
 	@Column()
-	Double totalFee;
-
-	public int priority;
-
+	Boolean rejected;
+	
+	long priority;
+	
+	
 
 }
