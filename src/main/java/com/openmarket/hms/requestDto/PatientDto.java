@@ -22,7 +22,7 @@ public class PatientDto {
 	@NotNull
 	String gender;
 	@NotNull
-	Date dob;
+	String dob;
 	@NotNull
 	String maritalStatus;
 }

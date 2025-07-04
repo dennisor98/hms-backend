@@ -247,7 +247,7 @@ public class PatientService {
    
    
    public Object addPatientToSession(String patientId) {
-	   
+	   User user = (User)SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 	   Optional<Patient> patOpt = this.patientRepository.findById(patientId);
 	   if(patOpt.isEmpty()) {
 		   Map<String,Object> res = new HashMap<>();
@@ -268,7 +268,7 @@ public class PatientService {
 	   }
 	   
 	   PatientSession patSessionBuild =  PatientSession.builder()
-			   .isActive(true).patient(patient).sessionId(AdvancedUniqueKeyGenerator.generateUniqueKey().toUpperCase())
+			   .isActive(true).patient(patient).sessionId(AdvancedUniqueKeyGenerator.generateUniqueKey().toUpperCase()).initiatedBy(user)
 			   .build();
 	   try {
 		   this.patSessRepository.save(patSessionBuild);
@@ -380,6 +380,11 @@ public class PatientService {
 		   return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(res);
 	   }
 	   	   
+   }
+   
+   
+   public Object getPatientsInSession() {
+	   return null;
    }
    
    

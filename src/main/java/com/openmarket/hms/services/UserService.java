@@ -185,6 +185,7 @@ public class UserService implements UserDetailsService {
 					.email("admin@openmarket@gmail.com")
 					.mobileNumber(phone)
 					.isActive(true)
+					.idNumber("00000000")
 					.build();
 			try {
 			User savedUser =	this.userRepository.save(user);

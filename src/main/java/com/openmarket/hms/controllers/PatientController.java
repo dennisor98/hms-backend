@@ -25,7 +25,7 @@ public class PatientController {
 	@Autowired
 	private PatientService patientService;
 	@PostMapping()
-	public Object addPatient(PatientDto ptdto) {
+	public Object addPatient(@Valid @RequestBody PatientDto ptdto) {
 		return this.patientService.createPatient(ptdto);
 	}
 	

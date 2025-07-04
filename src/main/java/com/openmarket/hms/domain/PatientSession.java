@@ -30,7 +30,7 @@ public class PatientSession extends BaseHmsDomain{
 	User initiatedBy;
 
 	@ManyToOne()
-	@JoinColumn(name="ender_id",nullable=false)
+	@JoinColumn(name="ender_id",nullable=true)
 	User endedBy;
 
 
